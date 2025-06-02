@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校园美食家 - 精致点餐平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: linear-gradient(to bottom, #fef5e7, #fed7aa);
+            color: #2d1b0a;
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://www.transparenttextures.com/patterns/food.png') repeat;
+            opacity: 0.1;
+            z-index: -1;
+        }
+        .card {
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+            border: none;
+            background: white;
+            border-radius: 1rem;
+        }
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 16px 32px rgba(0, 0, 0, 0.2);
+        }
+        .dish-img {
+            height: 240px;
+            object-fit: cover;
+            border-top-left-radius: 1rem;
+            border-top-right-radius: 1rem;
+        }
+        .price-tag {
+            color: #e63946;
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+        .nav-btn {
+            transition: all 0.3s ease;
+            border-radius: 0.75rem;
+        }
+        .nav-btn:hover {
+            transform: scale(1.05);
+            filter: brightness(115%);
+        }
+        .cart-badge {
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background-color: #e63946;
+            color: white;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        .section {
+            display: none;
+        }
+        .section.active {
+            display: block;
+            animation: fadeIn 0.6s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .star-rating .fas.fa-star {
+            color: #d1d5db;
+            font-size: 1.1rem;
+        }
+        .star-rating .fas.fa-star.checked {
+            color: #f4d03f;
+        }
+        .review-form textarea {
+            resize: vertical;
+            min-height: 120px;
+            border: 1px solid #d1d5db;
+            border-radius: 0.75rem;
+        }
+        .review-form select, .review-form textarea {
+            transition: all 0.2s ease;
+        }
+        .review-form select:focus, .review-form textarea:focus {
+            border-color: #f4a261;
+            box-shadow: 0 0 0 3px rgba(244, 162, 97, 0.2);
+        }
+        footer a {
+            transition: color 0.2s ease;
+        }
+        footer a:hover {
+            color: #f4a261;
+        }
+        .promo-banner {
+            background: linear-gradient(to right, #e63946, #f4a261);
+            color: white;
+            border-radius: 1rem;
+            animation: slideIn 1s ease-in-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
+        }
+        .category-btn {
+            transition: all 0.2s ease;
+        }
+        .category-btn.active, .category-btn:hover {
+            background-color: #f4a261;
+            color: white;
+        }
+        .carousel {
+            display: flex;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+            gap: 1.5rem;
+            padding-bottom: 1rem;
+        }
+        .carousel::-webkit-scrollbar {
+            height: 8px;
+        }
+        .carousel::-webkit-scrollbar-thumb {
+            background: #f4a261;
+            border-radius: 4px;
+        }
+        .carousel-item {
+            flex: 0 0 auto;
+            width: 300px;
+            scroll-snap-align: start;
+        }
+        .loading-spinner {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #f4a261;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            z-index: 1000;
+        }
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <!-- 加载动画 -->
+    <div id="loadingSpinner" class="loading-spinner"></div>
+
+    <!-- 促销横幅 -->
+    <div class="promo-banner p-6 mb-12 text-center">
+        <h2 class="text-2xl font-bold mb-2">新用户专享：首单8折优惠！</h2>
+        <p class="text-sm">立即点餐，享受美食之旅！</p>
+        <button onclick="showSection('menu')" class="mt-3 bg-white text-red-600 px-6 py-2 rounded-lg font-medium transition hover:bg-red-100">
+            立即抢购
+        </button>
+    </div>
+
+    <!-- 头部导航 -->
+    <header class="mb-12">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 flex items-center">
+                <i class="fas fa-utensils text-red-600 mr-3"></i>校园美食家
+            </h1>
+            <div class="flex items-center space-x-4">
+                <input type="text" id="searchBar" placeholder="搜索美食..." class="p-3 border rounded-lg w-64 bg-white focus:border-orange-400 focus:ring focus:ring-orange-200">
+                <div class="relative">
+                    <button onclick="showSection('cart')" class="bg-white p-4 rounded-full shadow-lg hover:shadow-xl transition">
+                        <i class="fas fa-shopping-cart text-gray-700 text-xl"></i>
+                        <span id="cartBadge" class="cart-badge">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <nav class="flex flex-wrap gap-3 mb-10">
+            <button onclick="showSection('menu')" class="nav-btn bg-red-600 text-white px-6 py-3 rounded-lg font-medium flex items-center">
+                <i class="fas fa-list mr-2"></i>今日菜单
+            </button>
+            <button onclick="showSection('featured')" class="nav-btn bg-orange-500 text-white px-6 py-3 rounded-lg font-medium flex items-center">
+                <i class="fas fa-star mr-2"></i>特色推荐
+            </button>
+            <button onclick="showSection('orders')" class="nav-btn bg-blue-600 text-white px-6 py-3 rounded-lg font-medium flex items-center">
+                <i class="fas fa-history mr-2"></i>订单记录
+            </button>
+            <button onclick="showSection('reviews')" class="nav-btn bg-green-600 text-white px-6 py-3 rounded-lg font-medium flex items-center">
+                <i class="fas fa-comment mr-2"></i>用户评价
+            </button>
+        </nav>
+    </header>
+
+    <!-- 主内容区 -->
+    <main>
+        <!-- 菜单区 -->
+        <section id="menu" class="section active">
+            <h2 class="text-3xl font-bold text-gray-900 mb-8 flex items-center">
+                <i class="fas fa-list-alt text-red-600 mr-3"></i>今日精选菜单
+            </h2>
+
+            <!-- 分类筛选 -->
+            <div class="flex gap-3 mb-8">
+                <button class="category-btn px-4 py-2 border rounded-lg bg-white text-gray-700 font-medium active" onclick="filterMenu('all')">全部</button>
+                <button class="category-btn px-4 py-2 border rounded-lg bg-white text-gray-700 font-medium" onclick="filterMenu('main')">主食</button>
+                <button class="category-btn px-4 py-2 border rounded-lg bg-white text-gray-700 font-medium" onclick="filterMenu('salad')">沙拉</button>
+                <button class="category-btn px-4 py-2 border rounded-lg bg-white text-gray-700 font-medium" onclick="filterMenu('special')">特色</button>
+            </div>
+
+            <!-- 热门菜品轮播 -->
+            <h3 class="text-2xl font-bold text-gray-900 mb-4">热门推荐</h3>
+            <div class="carousel mb-8">
+                <div class="carousel-item">
+                    <div class="card rounded-xl overflow-hidden">
+                        <img src="images/beef-noodle.jpg" alt="招牌牛肉面" class="dish-img w-full">
+                        <div class="p-6">
+                            <h3 class="text-xl font-bold text-gray-900">招牌牛肉面</h3>
+                            <p class="text-gray-600 mb-4 text-sm">精选牛腩慢炖，汤头浓郁</p>
+                            <span class="price-tag">¥15</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="carousel-item">
+                    <div class="card rounded-xl overflow-hidden">
+                        <img src="images/braised-pork.jpg" alt="秘制红烧肉套餐" class="dish-img w-full">
+                        <div class="p-6">
+                            <h3 class="text-xl font-bold text-gray-900">秘制红烧肉套餐</h3>
+                            <p class="text-gray-600 mb-4 text-sm">慢火炖煮，入口即化</p>
+                            <span class="price-tag">¥22</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="menuGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 菜品卡片1 -->
+                <div class="card rounded-xl overflow-hidden" data-category="main">
+                    <img src="images/beef-noodle.jpg" alt="招牌牛肉面" class="dish-img w-full">
+                    <div class="p-6">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold text-gray-900">招牌牛肉面</h3>
+                            <span class="price-tag">¥15</span>
+                        </div>
+                        <div class="flex items-center mb-3">
+                            <div class="star-rating" data-rating="4">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <span class="text-sm text-gray-500 ml-2" id="rating-1"></span>
+                        </div>
+                        <p class="text-gray-600 mb-4 text-sm">精选牛腩慢炖，汤头浓郁，面条劲道</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500" id="stock-1">剩余: 10份</span>
+                            <button onclick="addToCart(1)" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                                加入购物车
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 菜品卡片2 -->
+                <div class="card rounded-xl overflow-hidden" data-category="main">
+                    <img src="images/chicken-rice.jpg" alt="秘制鸡腿饭" class="dish-img w-full">
+                    <div class="p-6">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold text-gray-900">秘制鸡腿饭</h3>
+                            <span class="price-tag">¥18</span>
+                        </div>
+                        <div class="flex items-center mb-3">
+                            <div class="star-rating" data-rating="3">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <span class="text-sm text-gray-500 ml-2" id="rating-2"></span>
+                        </div>
+                        <p class="text-gray-600 mb-4 text-sm">特制酱料腌制，外酥里嫩，配时令蔬菜</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500" id="stock-2">剩余: 8份</span>
+                            <button onclick="addToCart(2)" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                                加入购物车
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 菜品卡片3 -->
+                <div class="card rounded-xl overflow-hidden" data-category="salad">
+                    <img src="images/garden-salad.jpg" alt="田园沙拉" class="dish-img w-full">
+                    <div class="p-6">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold text-gray-900">田园沙拉</h3>
+                            <span class="price-tag">¥12</span>
+                        </div>
+                        <div class="flex items-center mb-3">
+                            <div class="star-rating" data-rating="4.5">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <span class="text-sm text-gray-500 ml-2" id="rating-3"></span>
+                        </div>
+                        <p class="text-gray-600 mb-4 text-sm">新鲜有机蔬菜，配特调油醋汁，健康轻食</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500" id="stock-3">剩余: 5份</span>
+                            <button onclick="addToCart(3)" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                                加入购物车
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 购物车区 -->
+        <section id="cart" class="section">
+            <h2 class="text-3xl font-bold text-gray-900 mb-8 flex items-center">
+                <i class="fas fa-shopping-cart text-red-600 mr-3"></i>我的购物车
+            </h2>
+            
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <div id="cartItems" class="space-y-4">
+                    <p class="text-gray-500 text-center py-10">购物车空空如也，快去挑选美食吧~</p>
+                </div>
+                
+                <div class="border-t border-gray-200 pt-4 mt-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="text-lg font-medium text-gray-700">总计:</span>
+                        <span id="cartTotal" class="text-xl font-bold text-red-600">¥0</span>
+                    </div>
+                    <button onclick="checkout()" class="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition">
+                        去结算
+                    </button>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 特色推荐区 -->
+        <section id="featured" class="section">
+            <h2 class="text-3xl font-bold text-gray-900 mb-8 flex items-center">
+                <i class="fas fa-star text-orange-500 mr-3"></i>本周特色推荐
+            </h2>
+            
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="md:flex">
+                    <div class="md:w-1/2">
+                        <img src="images/braised-pork.jpg" alt="秘制红烧肉套餐" class="w-full h-full object-cover">
+                    </div>
+                    <div class="md:w-1/2 p-6">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-3">秘制红烧肉套餐</h3>
+                        <div class="flex items-center mb-3">
+                            <div class="star-rating" data-rating="4.2">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <span class="text-sm text-gray-500 ml-2" id="rating-4"></span>
+                        </div>
+                        <p class="text-gray-600 mb-4 text-sm">本周特供，选用优质五花肉，慢火炖煮3小时，入口即化，配米饭和时蔬</p>
+                        <div class="flex items-center mb-4">
+                            <span class="price-tag text-2xl mr-4">¥22</span>
+                            <span class="text-sm bg-orange-100 text-orange-800 px-2 py-1 rounded">限时特惠</span>
+                        </div>
+                        <button onclick="addToCart(4)" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition">
+                            立即订购
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 订单记录区 -->
+        <section id="orders" class="section">
+            <h2 class="text-3xl font-bold text-gray-900 mb-8 flex items-center">
+                <i class="fas fa-history text-blue-600 mr-3"></i>我的订单
+            </h2>
+            
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <div class="space-y-4">
+                    <div class="border-b border-gray-200 pb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-medium text-gray-900">订单 #20230527001</span>
+                            <span class="text-sm text-green-600 bg-green-50 px-2 py-1 rounded">已完成</span>
+                        </div>
+                        <div class="text-sm text-gray-500 mb-2">2023-05-26 12:30</div>
+                        <div class="flex justify-between items-center">
+                            <span>招牌牛肉面 ×1</span>
+                            <span class="font-medium">¥15</span>
+                        </div>
+                        <button onclick="showReviewForm(1)" class="mt-2 text-sm text-orange-600 hover:underline">评价订单</button>
+                    </div>
+                    
+                    <div class="border-b border-gray-200 pb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-medium text-gray-900">订单 #20230526002</span>
+                            <span class="text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded">配送中</span>
+                        </div>
+                        <div class="text-sm text-gray-500 mb-2">2023-05-25 18:15</div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span>秘制鸡腿饭 ×2</span>
+                                <span class="font-medium">¥36</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span>田园沙拉 ×1</span>
+                                <span class="font-medium">¥12</span>
+                            </div>
+                        </div>
+                        <button onclick="showReviewForm(2)" class="mt-2 text-sm text-orange-600 hover:underline">评价订单</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 用户评价区 -->
+        <section id="reviews" class="section">
+            <h2 class="text-3xl font-bold text-gray-900 mb-8 flex items-center">
+                <i class="fas fa-comment text-green-600 mr-3"></i>用户评价
+            </h2>
+            
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">发表评价</h3>
+                <div class="review-form mb-6">
+                    <select id="reviewItemSelect" class="w-full p-3 border rounded-lg mb-3 bg-white">
+                        <option value="">选择菜品</option>
+                        <option value="1">招牌牛肉面</option>
+                        <option value="2">秘制鸡腿饭</option>
+                        <option value="3">田园沙拉</option>
+                        <option value="4">秘制红烧肉套餐</option>
+                    </select>
+                    <div class="star-rating mb-3" id="newReviewStars">
+                        <i class="fas fa-star" data-value="1"></i>
+                        <i class="fas fa-star" data-value="2"></i>
+                        <i class="fas fa-star" data-value="3"></i>
+                        <i class="fas fa-star" data-value="4"></i>
+                        <i class="fas fa-star" data-value="5"></i>
+                    </div>
+                    <textarea id="reviewComment" class="w-full p-3 bg-white" placeholder="分享您的用餐体验..."></textarea>
+                    <button onclick="submitReview()" class="mt-3 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition">
+                        提交评价
+                    </button>
+                </div>
+                
+                <div id="reviewsList" class="space-y-4">
+                    <!-- 评价将通过JS动态生成 -->
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <!-- 页脚 -->
+    <footer class="mt-16 pt-8 border-t border-gray-200 text-center text-gray-500 text-sm">
+        <p class="font-medium">软件工程3班</p>
+        <p>2023080902125</p>
+        <p class="mt-2"><a href="" class="text-orange-600 hover:text-orange-700">田科</a></p>
+        <div class="mt-4 flex justify-center gap-4">
+            <a href="#" class="text-gray-500 hover:text-orange-600"><i class="fab fa-weixin"></i> 微信</a>
+            <a href="#" class="text-gray-500 hover:text-orange-600"><i class="fab fa-qq"></i> QQ</a>
+            <a href="#" class="text-gray-500 hover:text-orange-600"><i class="fas fa-envelope"></i> 邮箱</a>
+        </div>
+        <p class="mt-2">联系我们: support@campusfoodie.com | 电话: 123-456-7890</p>
+    </footer>
+
+    <script>
+        // 菜品数据
+        const menuItems = [
+            { id: 1, name: "招牌牛肉面", price: 15, stock: 10, img: "images/beef-noodle.jpg", category: "main" },
+            { id: 2, name: "秘制鸡腿饭", price: 18, stock: 8, img: "images/chicken-rice.jpg", category: "main" },
+            { id: 3, name: "田园沙拉", price: 12, stock: 5, img: "images/garden-salad.jpg", category: "salad" },
+            { id: 4, name: "秘制红烧肉套餐", price: 22, stock: 15, img: "images/braised-pork.jpg", category: "special" }
+        ];
+
+        // 购物车和评价数据
+        let cart = JSON.parse(localStorage.getItem('cart')) || [];
+        let reviews = JSON.parse(localStorage.getItem('reviews')) || [];
+
+        // 显示指定区域
+        function showSection(sectionId) {
+            showLoadingSpinner();
+            setTimeout(() => {
+                document.querySelectorAll('.section').forEach(section => {
+                    section.classList.remove('active');
+                });
+                document.getElementById(sectionId).classList.add('active');
+                if (sectionId === 'reviews') {
+                    updateReviewsUI();
+                } else if (sectionId === 'cart') {
+                    updateCartUI();
+                } else if (sectionId === 'menu') {
+                    updateStockUI();
+                    filterMenu('all');
+                }
+                hideLoadingSpinner();
+            }, 500);
+        }
+
+        // 菜单筛选
+        function filterMenu(category) {
+            document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.category-btn[onclick="filterMenu('${category}')"]`).classList.add('active');
+
+            const menuGrid = document.getElementById('menuGrid');
+            menuGrid.innerHTML = menuItems
+                .filter(item => category === 'all' || item.category === category)
+                .map(item => `
+                    <div class="card rounded-xl overflow-hidden" data-category="${item.category}">
+                        <img src="${item.img}" alt="${item.name}" class="dish-img w-full">
+                        <div class="p-6">
+                            <div class="flex justify-between items-start mb-3">
+                                <h3 class="text-xl font-bold text-gray-900">${item.name}</h3>
+                                <span class="price-tag">¥${item.price}</span>
+                            </div>
+                            <div class="flex items-center mb-3">
+                                <div class="star-rating" data-rating="${item.rating || 0}" data-id="${item.id}">
+                                    ${'<i class="fas fa-star"></i>'.repeat(5)}
+                                </div>
+                                <span class="text-sm text-gray-500 ml-2" id="rating-${item.id}"></span>
+                            </div>
+                            <p class="text-gray-600 mb-4 text-sm">${item.description || '暂无描述'}</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-500" id="stock-${item.id}">剩余: ${item.stock}份</span>
+                                <button onclick="addToCart(${item.id})" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                                    加入购物车
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            updateRatings();
+        }
+
+        // 搜索功能
+        document.getElementById('searchBar').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const menuGrid = document.getElementById('menuGrid');
+            menuGrid.innerHTML = menuItems
+                .filter(item => item.name.toLowerCase().includes(searchTerm))
+                .map(item => `
+                    <div class="card rounded-xl overflow-hidden" data-category="${item.category}">
+                        <img src="${item.img}" alt="${item.name}" class="dish-img w-full">
+                        <div class="p-6">
+                            <div class="flex justify-between items-start mb-3">
+                                <h3 class="text-xl font-bold text-gray-900">${item.name}</h3>
+                                <span class="price-tag">¥${item.price}</span>
+                            </div>
+                            <div class="flex items-center mb-3">
+                                <div class="star-rating" data-rating="${item.rating || 0}" data-id="${item.id}">
+                                    ${'<i class="fas fa-star"></i>'.repeat(5)}
+                                </div>
+                                <span class="text-sm text-gray-500 ml-2" id="rating-${item.id}"></span>
+                            </div>
+                            <p class="text-gray-600 mb-4 text-sm">${item.description || '暂无描述'}</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-500" id="stock-${item.id}">剩余: ${item.stock}份</span>
+                                <button onclick="addToCart(${item.id})" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                                    加入购物车
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            updateRatings();
+        });
+
+        // 显示加载动画
+        function showLoadingSpinner() {
+            document.getElementById('loadingSpinner').style.display = 'block';
+        }
+
+        // 隐藏加载动画
+        function hideLoadingSpinner() {
+            document.getElementById('loadingSpinner').style.display = 'none';
+        }
+
+        // 添加到购物车
+        function addToCart(itemId) {
+            showLoadingSpinner();
+            setTimeout(() => {
+                const item = menuItems.find(i => i.id === itemId);
+                if (!item || item.stock <= 0) {
+                    showToast(`抱歉，${item ? item.name + '已售罄' : '商品不存在'}`, 'bg-red-600');
+                    hideLoadingSpinner();
+                    return;
+                }
+
+                const existingItem = cart.find(i => i.id === itemId);
+                if (existingItem) {
+                    if (existingItem.quantity >= item.stock) {
+                        showToast(`库存不足，仅剩 ${item.stock} 份`, 'bg-red-600');
+                        hideLoadingSpinner();
+                        return;
+                    }
+                    existingItem.quantity += 1;
+                } else {
+                    cart.push({
+                        id: item.id,
+                        name: item.name,
+                        price: item.price,
+                        quantity: 1,
+                        img: item.img
+                    });
+                }
+
+                saveCart();
+                updateCartUI();
+                updateStockUI();
+                showToast(`已添加 ${item.name} 到购物车`, 'bg-green-600');
+                hideLoadingSpinner();
+            }, 500);
+        }
+
+        // 更新购物车数量
+        function updateCartItem(itemId, quantity) {
+            const item = cart.find(i => i.id === itemId);
+            const menuItem = menuItems.find(i => i.id === itemId);
+            if (item && menuItem) {
+                if (quantity > menuItem.stock) {
+                    showToast(`库存不足，仅剩 ${menuItem.stock} 份`, 'bg-red-600');
+                    return;
+                }
+                item.quantity = quantity;
+                if (item.quantity <= 0) {
+                    cart = cart.filter(i => i.id !== itemId);
+                }
+                saveCart();
+                updateCartUI();
+                updateStockUI();
+            }
+        }
+
+        // 移除购物车项目
+        function removeCartItem(itemId) {
+            cart = cart.filter(i => i.id !== itemId);
+            saveCart();
+            updateCartUI();
+            updateStockUI();
+            showToast('已从购物车移除', 'bg-green-600');
+        }
+
+        // 保存购物车到本地存储
+        function saveCart() {
+            localStorage.setItem('cart', JSON.stringify(cart));
+        }
+
+        // 更新购物车UI
+        function updateCartUI() {
+            const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+            document.getElementById('cartBadge').textContent = totalItems;
+
+            const sortedCart = [...cart].sort((a, b) => a.id - b.id);
+            const cartItemsEl = document.getElementById('cartItems');
+            if (sortedCart.length === 0) {
+                cartItemsEl.innerHTML = '<p class="text-gray-500 text-center py-10">购物车空空如也，快去挑选美食吧~</p>';
+            } else {
+                cartItemsEl.innerHTML = sortedCart.map(item => {
+                    const menuItem = menuItems.find(i => i.id === item.id);
+                    const imgSrc = menuItem ? menuItem.img : 'images/placeholder.jpg';
+                    return `
+                        <div class="flex items-center justify-between py-3 border-b border-gray-100">
+                            <div class="flex items-center">
+                                <img src="${imgSrc}" alt="${item.name}" class="w-16 h-16 object-cover rounded-lg mr-4" onerror="this.src='images/placeholder.jpg'">
+                                <div>
+                                    <h4 class="font-medium text-gray-800">${item.name}</h4>
+                                    <p class="text-sm text-gray-500">¥${item.price}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="updateCartItem(${item.id}, ${item.quantity - 1})" class="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-l-lg hover:bg-gray-100">
+                                    <i class="fas fa-minus text-xs"></i>
+                                </button>
+                                <span class="w-10 text-center border-t border-b border-gray-200 py-1">${item.quantity}</span>
+                                <button onclick="updateCartItem(${item.id}, ${item.quantity + 1})" class="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-r-lg hover:bg-gray-100">
+                                    <i class="fas fa-plus text-xs"></i>
+                                </button>
+                                <button onclick="removeCartItem(${item.id})" class="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-red-100">
+                                    <i class="fas fa-trash text-xs text-red-600"></i>
+                                </button>
+                            </div>
+                            <span class="font-medium">¥${item.price * item.quantity}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            document.getElementById('cartTotal').textContent = `¥${total}`;
+            updateStockUI();
+        }
+
+        // 更新库存显示
+        function updateStockUI() {
+            menuItems.forEach(item => {
+                const stockEl = document.getElementById(`stock-${item.id}`);
+                if (stockEl) {
+                    const cartItem = cart.find(i => i.id === item.id);
+                    const remainingStock = item.stock - (cartItem ? cartItem.quantity : 0);
+                    stockEl.textContent = `剩余: ${remainingStock}份`;
+                }
+            });
+        }
+
+        // 结算
+        function checkout() {
+            showLoadingSpinner();
+            setTimeout(() => {
+                if (cart.length === 0) {
+                    showToast('购物车为空，请先添加商品', 'bg-red-600');
+                    hideLoadingSpinner();
+                    return;
+                }
+
+                showToast(`订单提交成功！总金额: ¥${cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)}`, 'bg-green-600');
+                cart = [];
+                saveCart();
+                updateCartUI();
+                showSection('menu');
+                hideLoadingSpinner();
+            }, 500);
+        }
+
+        // 显示评价表单
+        function showReviewForm(itemId) {
+            showSection('reviews');
+            document.getElementById('reviewItemSelect').value = itemId;
+        }
+
+        // 提交评价
+        function submitReview() {
+            showLoadingSpinner();
+            setTimeout(() => {
+                const itemId = document.getElementById('reviewItemSelect').value;
+                const comment = document.getElementById('reviewComment').value;
+                const stars = document.querySelectorAll('#newReviewStars .fas.fa-star.checked').length;
+
+                if (!itemId || !comment || stars === 0) {
+                    showToast('请完整填写评价信息', 'bg-red-600');
+                    hideLoadingSpinner();
+                    return;
+                }
+
+                reviews.push({
+                    id: Date.now(),
+                    itemId: parseInt(itemId),
+                    rating: stars,
+                    comment: comment,
+                    date: new Date().toLocaleString('zh-CN')
+                });
+
+                localStorage.setItem('reviews', JSON.stringify(reviews));
+                document.getElementById('reviewComment').value = '';
+                document.getElementById('reviewItemSelect').value = '';
+                document.querySelectorAll('#newReviewStars .fas.fa-star').forEach(star => star.classList.remove('checked'));
+
+                updateReviewsUI();
+                updateRatings();
+                showToast('评价提交成功', 'bg-green-600');
+                hideLoadingSpinner();
+            }, 500);
+        }
+
+        // 更新评价UI
+        function updateReviewsUI() {
+            const reviewsList = document.getElementById('reviewsList');
+            reviewsList.innerHTML = reviews.length === 0 ?
+                '<p class="text-gray-500 text-center py-10">暂无评价，快来分享您的体验吧~</p>' :
+                reviews.map(review => `
+                    <div class="border-b border-gray-200 pb-4">
+                        <div class="flex items-center mb-2">
+                            <div class="star-rating" data-rating="${review.rating}">
+                                ${'<i class="fas fa-star"></i>'.repeat(5)}
+                            </div>
+                            <span class="text-sm text-gray-500 ml-2">${menuItems.find(item => item.id === review.itemId)?.name || '未知菜品'}</span>
+                        </div>
+                        <p class="text-gray-600">${review.comment}</p>
+                        <p class="text-sm text-gray-400 mt-1">${review.date}</p>
+                    </div>
+                `).join('');
+
+            updateRatings();
+        }
+
+        // 更新星级显示
+        function updateRatings() {
+            menuItems.forEach(item => {
+                const itemReviews = reviews.filter(r => r.itemId === item.id);
+                const avgRating = itemReviews.length > 0 ?
+                    (itemReviews.reduce((sum, r) => sum + r.rating, 0) / itemReviews.length).toFixed(1) : 0;
+
+                const ratingEl = document.getElementById(`rating-${item.id}`);
+                if (ratingEl) {
+                    ratingEl.textContent = avgRating > 0 ? `(${avgRating}分, ${itemReviews.length}条评价)` : '(暂无评价)';
+                }
+
+                const starRatingEls = document.querySelectorAll(`.star-rating[data-id="${item.id}"]`);
+                starRatingEls.forEach(starRatingEl => {
+                    const stars = starRatingEl.querySelectorAll('.fas.fa-star');
+                    const rating = avgRating || starRatingEl.dataset.rating;
+                    stars.forEach((star, index) => {
+                        star.classList.toggle('checked', index < Math.round(rating));
+                    });
+                });
+            });
+        }
+
+        // 显示提示
+        function showToast(message, bgColor) {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-6 left-1/2 transform -translate-x-1/2 ${bgColor} text-white px-6 py-3 rounded-lg shadow-2xl z-50`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 2500);
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 为星级评分添加 data-id 属性
+            document.querySelectorAll('.star-rating').forEach(el => {
+                const card = el.closest('.card');
+                if (card) {
+                    const index = Array.from(card.parentNode.children).indexOf(card) + 1;
+                    el.dataset.id = index;
+                } else if (el.closest('#featured')) {
+                    el.dataset.id = 4; // 特色推荐为 id 4
+                }
+            });
+
+            updateCartUI();
+            updateReviewsUI();
+            updateStockUI();
+
+            document.querySelectorAll('#newReviewStars .fas.fa-star').forEach(star => {
+                star.addEventListener('click', () => {
+                    const value = parseInt(star.dataset.value);
+                    document.querySelectorAll('#newReviewStars .fas.fa-star').forEach(s => {
+                        s.classList.toggle('checked', parseInt(s.dataset.value) <= value);
+                    });
+                });
+            });
+        });
+    </script>
+</body>
+</html>
